@@ -27,10 +27,10 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Resolve version
         id: v
@@ -133,8 +133,10 @@ for round screens (`round-466-zps`). Model names come from `~/.zepp/.zeus_device
   passed in through `github-token` and is never echoed in the log.
 - A package only installs on the devices it was built for — chipset splits (NXP / ZPS / APOLLO)
   are real, not cosmetic. That is why there is one QR per platform.
-- The action needs Node 20 on the runner (`node20` runtime) and network access, because
-  `zeus build` refreshes its device list from `upload-cdn.zepp.com`.
+- The action runs on `node24` (GitHub retired the `node20` runtime for JavaScript actions on
+  23 September 2026) and needs network access, because `zeus build` refreshes its device list
+  from `upload-cdn.zepp.com`. Your project's own Node version is whatever `actions/setup-node`
+  installed — the two are independent.
 - `expiry` defaults to `2147483647` seconds — `INT32_MAX`, about 68 years — so a package
   effectively never expires once published. That ceiling is deliberate: a consumer that holds
   `expiredTime` in a signed 32-bit int would wrap anything larger into a negative, already

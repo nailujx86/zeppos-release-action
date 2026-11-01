@@ -109,5 +109,5 @@ outputs:
     description: HTML URL of the created or updated release, when publish-release is true.
 
 runs:
-  using: node20
+  using: node24
   main: dist/index.js

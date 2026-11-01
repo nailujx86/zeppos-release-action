@@ -23,8 +23,8 @@ test('marketplace metadata is present and within limits', () => {
   assert.match(ACTION.branding.color, /^(white|yellow|blue|green|orange|red|purple|gray-dark)$/);
 });
 
-test('runs a bundled node action', () => {
-  assert.equal(ACTION.runs.using, 'node20');
+test('runs on the current actions runtime', () => {
+  assert.equal(ACTION.runs.using, 'node24');
   assert.equal(ACTION.runs.main, 'dist/index.js');
   // The bundle being present and current is enforced by CI (`git diff --exit-code dist`)
   // and by the self-test workflow, which cannot run without it.
