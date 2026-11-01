@@ -4,7 +4,7 @@ Build a Zepp OS project, split its `.zab` into per-device `.zpk` files, patch th
 install, and emit `zpkd1://` QR codes that install on the watch with no developer account.
 
 - One package and one QR code per device platform in the build.
-- Packages are patched to `packageInfo.mode = "preview"` with a 1000-year expiry — what
+- Packages are patched to `packageInfo.mode = "preview"` with a 68-year expiry — what
   direct-link installs expect (zeus stamps 48 hours). Bytecode and assets are untouched.
 - Every QR is decoded back and compared with its payload before the step can pass.
 - **Opt-in publishing:** `publish-pages: true` pushes the packages to a Pages branch and points
@@ -83,7 +83,7 @@ scan its own screen, the Scan screen's gallery button accepts a screenshot.
 | `base-url` | no | `""` | Public host and path serving the `.zpk` files, no scheme. Needed when neither publishing mode is on. |
 | `out-dir` | no | `zepp-site` | Where the packages, QR images, `packages.json` and `release-notes.md` go. |
 | `scheme` | no | `zpkd1` | QR URL scheme: `zpkd1` for mini programs/apps, `watchface` for watch faces. |
-| `expiry` | no | `31536000000` | Package validity in seconds, written to `packageInfo.expiredTime`. Default is 1000 years. |
+| `expiry` | no | `2147483647` | Package validity in seconds, written to `packageInfo.expiredTime`. Default is `INT32_MAX` — about 68 years. |
 | `expect-version` | no | `""` | Fail unless the packaged app version matches. Guards tag/`app.json` drift. |
 | `build` | no | `true` | Run `npm install --include=dev` and `run` before packing. |
 | `run` | no | `npm run build` | Build command, executed in `working-directory`. |
@@ -116,7 +116,7 @@ scan its own screen, the Scan screen's gallery button accepts a screenshot.
 ## What ends up in `out-dir`
 
 ```
-<stem>-<slug>.zpk        patched, mode=preview, expiry 1000 years out
+<stem>-<slug>.zpk        patched, mode=preview, expiry 68 years out
 <stem>-<slug>-raw.zpk    exactly as zeus built it, for comparison
 qr-<slug>.png            the zpkd1:// QR for that package
 packages.json            index of all of the above
@@ -135,13 +135,11 @@ for round screens (`round-466-zps`). Model names come from `~/.zepp/.zeus_device
   are real, not cosmetic. That is why there is one QR per platform.
 - The action needs Node 20 on the runner (`node20` runtime) and network access, because
   `zeus build` refreshes its device list from `upload-cdn.zepp.com`.
-- `expiry` defaults to 1000 years (`31536000000` seconds), so a package effectively never
-  expires once published. Re-running a release for the same version rewrites the same URLs with
-  the same expiry, so printed QR codes keep working indefinitely.
-  If a package ever refuses to install with an expiry error, pass
-  `expiry: 2147483647` (about 68 years) — that is the largest value a signed 32-bit integer can
-  hold, and a consumer that reads `expiredTime` as `int32` would wrap anything larger into a
-  negative, already-expired number.
+- `expiry` defaults to `2147483647` seconds — `INT32_MAX`, about 68 years — so a package
+  effectively never expires once published. That ceiling is deliberate: a consumer that holds
+  `expiredTime` in a signed 32-bit int would wrap anything larger into a negative, already
+  expired value. Re-running a release for the same version rewrites the same URLs with the same
+  expiry, so printed QR codes keep working indefinitely.
 
 ## Licence
 

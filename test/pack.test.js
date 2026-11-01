@@ -81,16 +81,16 @@ test('patched package is preview with a long expiry', async () => {
   assert.equal(config.packageInfo.zpm, '3.4.2');
 });
 
-test('default expiry is a thousand years and stays a safe integer', () => {
-  assert.equal(pack.DEFAULT_EXPIRY, 1000 * 365 * 24 * 60 * 60);
-  assert.equal(pack.DEFAULT_EXPIRY, 31536000000);
+test('default expiry is the int32 ceiling', () => {
+  assert.equal(pack.DEFAULT_EXPIRY, 2147483647);
+  assert.equal(pack.DEFAULT_EXPIRY, 2 ** 31 - 1);
   assert.ok(Number.isSafeInteger(pack.DEFAULT_EXPIRY));
 });
 
 test('a custom expiry is written through unchanged', async () => {
-  const { outDir } = await packed({ expiry: 2147483647 });
+  const { outDir } = await packed({ expiry: 31536000 });
   const config = await innerAppJson(path.join(outDir, 'uv-index-1-0-0-round-466-zps.zpk'));
-  assert.equal(config.packageInfo.expiredTime, 2147483647);
+  assert.equal(config.packageInfo.expiredTime, 31536000);
   assert.equal(config.packageInfo.mode, 'preview');
 });
 

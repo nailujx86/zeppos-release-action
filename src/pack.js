@@ -5,10 +5,11 @@ const path = require('node:path');
 
 const JSZip = require('jszip');
 
-// Seconds; zeus stamps 172800 (48h), which is the usual reason a direct-link package
-// stops installing a couple of days after it was built. 1000 * 365 days — effectively
-// "does not expire". Callers can override it through the `expiry` input.
-const DEFAULT_EXPIRY = 1000 * 365 * 24 * 60 * 60; // 31536000000
+// Seconds. zeus stamps 172800 (48h), which is what makes a direct-link package stop
+// installing a couple of days after it was built. 2147483647 (INT32_MAX, ~68 years) is
+// deliberate: anything larger wraps negative if a consumer holds expiredTime in a signed
+// 32-bit int, which would read as already expired. Callers can override via `expiry`.
+const DEFAULT_EXPIRY = 2147483647;
 const FIXED_DATE = new Date(Date.UTC(1980, 0, 1, 0, 0, 0)); // deterministic zips
 const ZIP_OPTIONS = { date: FIXED_DATE, compression: 'DEFLATE', unixPermissions: 0o600 };
 const GENERATE_OPTIONS = { type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } };
