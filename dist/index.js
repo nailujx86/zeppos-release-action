@@ -62261,7 +62261,13 @@ function checkRequireStrings(value, cwd) {
 
 async function findZab(cwd, pattern) {
   const globber = await glob.create(path.resolve(cwd, pattern), { followSymbolicLinks: false });
-  const matches = (await globber.glob()).filter((file) => fs.statSync(file).isFile());
+  const matches = (await globber.glob()).filter((file) => {
+    try {
+      return fs.statSync(file).isFile();
+    } catch {
+      return false;
+    }
+  });
   if (matches.length !== 1) {
     const found = matches.length ? `: ${matches.join(', ')}` : '';
     throw new Error(`expected exactly one .zab matching ${pattern}, found ${matches.length}${found}`);
@@ -62279,6 +62285,11 @@ async function run() {
   const expiry = Number(core.getInput('expiry') || pack.DEFAULT_EXPIRY);
   if (!Number.isSafeInteger(expiry) || expiry <= 0) {
     throw new Error(`expiry must be a positive whole number of seconds, got ${core.getInput('expiry')}`);
+  }
+  if (expiry > 2147483647) {
+    core.warning(
+      `expiry ${expiry} exceeds INT32_MAX (2147483647): a consumer holding expiredTime in a signed 32-bit int would read it as already expired`
+    );
   }
   if (publishPages && !token) throw new Error('publish-pages needs a token (input `github-token`)');
   if (publishRelease && !token) throw new Error('publish-release needs a token (input `github-token`)');
@@ -62302,12 +62313,14 @@ async function run() {
   }
 
   const tag = core.getInput('tag') || `v${app.version}`;
+  const versionDir = publish.pagesDirFor(app.version);
   const base = publish.resolveBaseUrl({
     baseUrl: core.getInput('base-url'),
     publishPages,
     publishRelease,
     repo,
     tag,
+    pagesDir: versionDir,
   });
 
   const outDir = path.resolve(cwd, core.getInput('out-dir') || 'zepp-site');
@@ -62336,9 +62349,9 @@ async function run() {
     await publish.publishPages({
       repoUrl: `https://x-access-token:${token}@github.com/${repo}.git`,
       branch: 'gh-pages',
-      destDir: `v${app.version}`,
+      destDir: versionDir,
       files: zpks,
-      message: `publish v${app.version} (${app.appName} ${app.version})`,
+      message: `publish ${versionDir} (${app.appName} ${app.version})`,
     });
   }
 
@@ -62428,12 +62441,20 @@ function loadDevices(file) {
   return names;
 }
 
+function slugSafe(value) {
+  // Filenames only ever carry [a-z0-9-]: these strings come from a .zab manifest and
+  // end up in file names under outDir, so a crafted manifest must not be able to name
+  // a path outside it.
+  const safe = String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return safe || 'device';
+}
+
 function slugFor(platform) {
   const shape = String(platform.screenType || 'dev').toLowerCase();
   const [width, height] = String(platform.screenResolution || '?').split('x');
   const cpu = String(platform.cpuPlatform || 'cpu').toLowerCase();
-  if (shape === 'round') return `${shape}-${width}-${cpu}`;
-  return `${shape}-${width}x${height || width}-${cpu}`;
+  if (shape === 'round') return slugSafe(`${shape}-${width}-${cpu}`);
+  return slugSafe(`${shape}-${width}x${height || width}-${cpu}`);
 }
 
 function labelFor(platform) {
@@ -62447,12 +62468,9 @@ function labelFor(platform) {
 function stemFor(app) {
   // Filenames stay plain ASCII: a QR filename with non-ASCII characters is a
   // known source of failed downloads on the watch side.
-  const name = String(app.appName || 'app')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const version = String(app.version || '').replace(/\./g, '-');
-  return version ? `${name}-${version}` : name;
+  const name = slugSafe(app.appName || 'app');
+  const version = String(app.version || '');
+  return version ? `${name}-${slugSafe(version)}` : name;
 }
 
 function normaliseBase(baseUrl) {
@@ -62603,9 +62621,14 @@ async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices 
   const app = appMetaFor(parsed);
   const stem = stemFor(app);
   const packages = [];
+  const slugs = new Set();
 
   for (const { platform, deviceZip, appSide, config } of parsed.entries) {
     const slug = slugFor(platform);
+    if (slugs.has(slug)) {
+      throw new Error(`two packages would both be called ${slug}.zpk; the platform metadata in ${parsed.sourceName} is not distinct enough`);
+    }
+    slugs.add(slug);
     const file = `${stem}-${slug}.zpk`;
     const rawFile = `${stem}-${slug}-raw.zpk`;
     const patched = await buildZpk(await rebuildDeviceZip(deviceZip, expiry), appSide);
@@ -62672,6 +62695,11 @@ const { normaliseBase } = __nccwpck_require__(1136);
 
 const API = 'https://api.github.com';
 const UPLOAD = 'https://uploads.github.com';
+
+/** The one place a version becomes a directory name, so the push and the QR URL cannot drift. */
+function pagesDirFor(version) {
+  return `v${version}`;
+}
 
 function pagesBaseUrl(repo, pagesDir) {
   const [owner, name] = String(repo).split('/');
@@ -62834,7 +62862,7 @@ async function publishRelease({
   return release.html_url;
 }
 
-module.exports = { resolveBaseUrl, pagesBaseUrl, releaseBaseUrl, publishPages, publishRelease };
+module.exports = { resolveBaseUrl, pagesBaseUrl, releaseBaseUrl, pagesDirFor, publishPages, publishRelease };
 
 
 /***/ }),

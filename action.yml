@@ -42,7 +42,7 @@ inputs:
     required: false
     default: ""
   check-urls:
-    description: Poll the public URL of every package once publishing is done.
+    description: Poll the public URL of every patched package once publishing is done.
     required: false
     default: "false"
   publish-pages:

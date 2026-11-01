@@ -34,6 +34,30 @@ test('slug and label describe a platform unambiguously', () => {
   assert.equal(pack.labelFor(PLATFORMS[0]), 'Round 466\u00d7466 \u00b7 ZPS');
 });
 
+test('a crafted manifest cannot name a file outside outDir', () => {
+  const evil = { screenType: 'x/../../pwned', screenResolution: '466x466', cpuPlatform: 'ZPS' };
+  const slug = pack.slugFor(evil);
+  assert.equal(slug, 'x-pwned-466x466-zps');
+  assert.ok(!slug.includes('/') && !slug.includes('..'), slug);
+  const stem = pack.stemFor({ appName: 'UV Index', version: '1.0.0/../../etc' });
+  assert.ok(!stem.includes('/') && !stem.includes('..'), stem);
+});
+
+test('two packages that would collide are refused', async () => {
+  const dir = tempDir();
+  const zabPath = await makeZab(path.join(dir, 'build.zab'), {
+    platforms: [
+      { screenType: 'round', screenResolution: '466x466', cpuPlatform: 'ZPS', sources: [1] },
+      { screenType: 'round', screenResolution: '466x466', cpuPlatform: 'ZPS', sources: [2] },
+    ],
+  });
+  const parsed = await pack.readZab(fs.readFileSync(zabPath), 'build.zab');
+  await assert.rejects(
+    pack.packZab(parsed, { outDir: path.join(dir, 'site'), base: BASE, devices: {} }),
+    /would both be called/
+  );
+});
+
 test('stem is filename safe', () => {
   assert.equal(pack.stemFor({ appName: 'UV Index', version: '1.2.3' }), 'uv-index-1-2-3');
   assert.equal(pack.stemFor({ appName: 'My App!', version: '2.0.0' }), 'my-app-2-0-0');

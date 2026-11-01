@@ -31,12 +31,20 @@ function loadDevices(file) {
   return names;
 }
 
+function slugSafe(value) {
+  // Filenames only ever carry [a-z0-9-]: these strings come from a .zab manifest and
+  // end up in file names under outDir, so a crafted manifest must not be able to name
+  // a path outside it.
+  const safe = String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return safe || 'device';
+}
+
 function slugFor(platform) {
   const shape = String(platform.screenType || 'dev').toLowerCase();
   const [width, height] = String(platform.screenResolution || '?').split('x');
   const cpu = String(platform.cpuPlatform || 'cpu').toLowerCase();
-  if (shape === 'round') return `${shape}-${width}-${cpu}`;
-  return `${shape}-${width}x${height || width}-${cpu}`;
+  if (shape === 'round') return slugSafe(`${shape}-${width}-${cpu}`);
+  return slugSafe(`${shape}-${width}x${height || width}-${cpu}`);
 }
 
 function labelFor(platform) {
@@ -50,12 +58,9 @@ function labelFor(platform) {
 function stemFor(app) {
   // Filenames stay plain ASCII: a QR filename with non-ASCII characters is a
   // known source of failed downloads on the watch side.
-  const name = String(app.appName || 'app')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const version = String(app.version || '').replace(/\./g, '-');
-  return version ? `${name}-${version}` : name;
+  const name = slugSafe(app.appName || 'app');
+  const version = String(app.version || '');
+  return version ? `${name}-${slugSafe(version)}` : name;
 }
 
 function normaliseBase(baseUrl) {
@@ -206,9 +211,14 @@ async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices 
   const app = appMetaFor(parsed);
   const stem = stemFor(app);
   const packages = [];
+  const slugs = new Set();
 
   for (const { platform, deviceZip, appSide, config } of parsed.entries) {
     const slug = slugFor(platform);
+    if (slugs.has(slug)) {
+      throw new Error(`two packages would both be called ${slug}.zpk; the platform metadata in ${parsed.sourceName} is not distinct enough`);
+    }
+    slugs.add(slug);
     const file = `${stem}-${slug}.zpk`;
     const rawFile = `${stem}-${slug}-raw.zpk`;
     const patched = await buildZpk(await rebuildDeviceZip(deviceZip, expiry), appSide);

@@ -81,13 +81,13 @@ scan its own screen, the Scan screen's gallery button accepts a screenshot.
 |---|---|---|---|
 | `zab` | no | `dist/*.zab` | Glob for the built `.zab`. Must match exactly one file. |
 | `base-url` | no | `""` | Public host and path serving the `.zpk` files, no scheme. Needed when neither publishing mode is on. |
-| `out-dir` | no | `zepp-site` | Where the packages, QR images, `packages.json` and `release-notes.md` go. |
+| `out-dir` | no | `zepp-site` | Where the packages, QR images and `release-notes.md` go. |
 | `expiry` | no | `2147483647` | Package validity in seconds, written to `packageInfo.expiredTime`. Default is `INT32_MAX` — about 68 years. |
 | `expect-version` | no | `""` | Fail unless the packaged app version matches. Guards tag/`app.json` drift. |
-| `build` | no | `true` | Run `npm install --include=dev` and `run` before packing. |
+| `build` | no | `true` | Run `npm install --include=dev` and `npm run build` before packing. |
 | `working-directory` | no | `.` | Directory containing the Zepp OS project. |
 | `require-strings` | no | `""` | Newline separated `file::text` pairs that must exist before packing, e.g. `utils/config/constants.js::export const DEMO_MODE = false`. |
-| `check-urls` | no | `false` | Poll the public URL of every package once publishing is done. |
+| `check-urls` | no | `false` | Poll the public URL of every patched package once publishing is done. |
 | `publish-pages` | no | `false` | Push the packages to a Pages branch and point the QR codes at it. |
 | `publish-release` | no | `false` | Create or update a GitHub release carrying the QR codes and, unless Pages is on, the packages. |
 | `tag` | no | `""` | Release tag. Defaults to `v<version>`. |

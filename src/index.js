@@ -49,7 +49,13 @@ function checkRequireStrings(value, cwd) {
 
 async function findZab(cwd, pattern) {
   const globber = await glob.create(path.resolve(cwd, pattern), { followSymbolicLinks: false });
-  const matches = (await globber.glob()).filter((file) => fs.statSync(file).isFile());
+  const matches = (await globber.glob()).filter((file) => {
+    try {
+      return fs.statSync(file).isFile();
+    } catch {
+      return false;
+    }
+  });
   if (matches.length !== 1) {
     const found = matches.length ? `: ${matches.join(', ')}` : '';
     throw new Error(`expected exactly one .zab matching ${pattern}, found ${matches.length}${found}`);
@@ -67,6 +73,11 @@ async function run() {
   const expiry = Number(core.getInput('expiry') || pack.DEFAULT_EXPIRY);
   if (!Number.isSafeInteger(expiry) || expiry <= 0) {
     throw new Error(`expiry must be a positive whole number of seconds, got ${core.getInput('expiry')}`);
+  }
+  if (expiry > 2147483647) {
+    core.warning(
+      `expiry ${expiry} exceeds INT32_MAX (2147483647): a consumer holding expiredTime in a signed 32-bit int would read it as already expired`
+    );
   }
   if (publishPages && !token) throw new Error('publish-pages needs a token (input `github-token`)');
   if (publishRelease && !token) throw new Error('publish-release needs a token (input `github-token`)');
@@ -90,12 +101,14 @@ async function run() {
   }
 
   const tag = core.getInput('tag') || `v${app.version}`;
+  const versionDir = publish.pagesDirFor(app.version);
   const base = publish.resolveBaseUrl({
     baseUrl: core.getInput('base-url'),
     publishPages,
     publishRelease,
     repo,
     tag,
+    pagesDir: versionDir,
   });
 
   const outDir = path.resolve(cwd, core.getInput('out-dir') || 'zepp-site');
@@ -124,9 +137,9 @@ async function run() {
     await publish.publishPages({
       repoUrl: `https://x-access-token:${token}@github.com/${repo}.git`,
       branch: 'gh-pages',
-      destDir: `v${app.version}`,
+      destDir: versionDir,
       files: zpks,
-      message: `publish v${app.version} (${app.appName} ${app.version})`,
+      message: `publish ${versionDir} (${app.appName} ${app.version})`,
     });
   }
 

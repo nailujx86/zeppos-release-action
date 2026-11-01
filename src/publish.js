@@ -12,6 +12,11 @@ const { normaliseBase } = require('./pack');
 const API = 'https://api.github.com';
 const UPLOAD = 'https://uploads.github.com';
 
+/** The one place a version becomes a directory name, so the push and the QR URL cannot drift. */
+function pagesDirFor(version) {
+  return `v${version}`;
+}
+
 function pagesBaseUrl(repo, pagesDir) {
   const [owner, name] = String(repo).split('/');
   const isUserSite = Boolean(name) && name.toLowerCase() === `${owner.toLowerCase()}.github.io`;
@@ -173,4 +178,4 @@ async function publishRelease({
   return release.html_url;
 }
 
-module.exports = { resolveBaseUrl, pagesBaseUrl, releaseBaseUrl, publishPages, publishRelease };
+module.exports = { resolveBaseUrl, pagesBaseUrl, releaseBaseUrl, pagesDirFor, publishPages, publishRelease };

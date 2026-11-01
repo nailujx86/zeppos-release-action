@@ -57,6 +57,20 @@ test('resolveBaseUrl prefers an explicit base, then pages, then release', () => 
   assert.throws(() => publish.resolveBaseUrl({ ...common }), /set `base-url`/);
 });
 
+test('the QR base ends with the directory the files are pushed into', () => {
+  // The regression that made every QR 404: the push used v<version>/ but the base
+  // URL did not include it.
+  const versionDir = publish.pagesDirFor('1.0.0');
+  assert.equal(versionDir, 'v1.0.0');
+  const base = publish.resolveBaseUrl({
+    publishPages: true,
+    repo: 'nailujx86/uv-index',
+    tag: 'v1.0.0',
+    pagesDir: versionDir,
+  });
+  assert.equal(base, 'nailujx86.github.io/uv-index/v1.0.0');
+});
+
 test('publishPages refuses a destination that escapes the worktree', async () => {
   await assert.rejects(
     publish.publishPages({ repoUrl: '/tmp/nowhere.git', branch: 'gh-pages', destDir: 'v1.0.0/../../evil', files: [] }),
