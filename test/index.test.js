@@ -94,6 +94,11 @@ test('bad expiry is rejected before anything is read', async () => {
   await assert.rejects(run(), /expiry must be a positive whole number/);
 });
 
+test('an expiry beyond safe-integer range is rejected', async () => {
+  setInputs({ 'base-url': 'example.github.io/app/v1', expiry: '99999999999999999999', build: 'false' });
+  await assert.rejects(run(), /expiry must be a positive whole number/);
+});
+
 test('publishing without a token fails fast', async () => {
   const dir = tempDir();
   await makeZab(path.join(dir, 'dist', 'build.zab'));

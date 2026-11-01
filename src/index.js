@@ -66,7 +66,7 @@ async function run() {
   const publishRelease = truthy(core.getInput('publish-release'));
 
   const expiry = Number(core.getInput('expiry') || pack.DEFAULT_EXPIRY);
-  if (!Number.isInteger(expiry) || expiry <= 0) {
+  if (!Number.isSafeInteger(expiry) || expiry <= 0) {
     throw new Error(`expiry must be a positive whole number of seconds, got ${core.getInput('expiry')}`);
   }
   if (publishPages && !token) throw new Error('publish-pages needs a token (input `github-token`)');

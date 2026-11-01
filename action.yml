@@ -25,7 +25,7 @@ inputs:
   expiry:
     description: Package validity in seconds, written to packageInfo.expiredTime.
     required: false
-    default: "31536000"
+    default: "31536000000"
   expect-version:
     description: If set, fail unless the packaged app version matches this value.
     required: false

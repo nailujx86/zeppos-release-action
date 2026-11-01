@@ -5,7 +5,10 @@ const path = require('node:path');
 
 const JSZip = require('jszip');
 
-const DEFAULT_EXPIRY = 31536000; // seconds, one year. zeus stamps 172800 (48h).
+// Seconds; zeus stamps 172800 (48h), which is the usual reason a direct-link package
+// stops installing a couple of days after it was built. 1000 * 365 days — effectively
+// "does not expire". Callers can override it through the `expiry` input.
+const DEFAULT_EXPIRY = 1000 * 365 * 24 * 60 * 60; // 31536000000
 const FIXED_DATE = new Date(Date.UTC(1980, 0, 1, 0, 0, 0)); // deterministic zips
 const ZIP_OPTIONS = { date: FIXED_DATE, compression: 'DEFLATE', unixPermissions: 0o600 };
 const GENERATE_OPTIONS = { type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } };
@@ -175,7 +178,7 @@ function renderNotes(document, scheme = 'zpkd1') {
   }
   lines.push(
     '',
-    'The packages are patched for direct install (`packageInfo.mode = "preview"`, one-year expiry)',
+    'The packages are patched for direct install (`packageInfo.mode = "preview"`, long expiry)',
     'and served from a permanent path: re-running the release republishes the same URLs with a fresh',
     'expiry, so these QR codes keep working.',
     '',
