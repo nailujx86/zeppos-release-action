@@ -1,0 +1,62 @@
+name: Self-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  uses-itself:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node test/make-fixture.js
+
+      - name: Run the action on a fixture
+        id: pack
+        uses: ./
+        with:
+          zab: test/fixtures/sample.zab
+          base-url: example.github.io/example-app/v1.0.0
+          out-dir: zepp-site
+          build: "false"
+          expect-version: "1.0.0"
+          require-strings: |
+            test/fixtures/sample.zab::PK
+
+      - name: Assert the outputs
+        run: |
+          set -euo pipefail
+          test "${{ steps.pack.outputs.count }}" = "2"
+          test "${{ steps.pack.outputs.version }}" = "1.0.0"
+          test "${{ steps.pack.outputs.base-url }}" = "example.github.io/example-app/v1.0.0"
+          test "$(ls zepp-site/*.zpk | wc -l)" = "4"
+          test "$(ls zepp-site/qr-*.png | wc -l)" = "2"
+          head -3 zepp-site/release-notes.md
+
+      - name: Push into a scratch Pages branch
+        if: ${{ github.event_name == 'push' }}
+        uses: ./
+        with:
+          zab: test/fixtures/sample.zab
+          out-dir: zepp-site-pages
+          build: "false"
+          publish-pages: true
+          pages-branch: selftest-pages
+          pages-dir: v1.0.0
+          verify-qr: "false"
+
+      - name: The scratch branch carries the packages
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin selftest-pages
+          git ls-tree --name-only FETCH_HEAD:v1.0.0
