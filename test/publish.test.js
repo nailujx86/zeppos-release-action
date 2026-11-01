@@ -57,6 +57,21 @@ test('resolveBaseUrl prefers an explicit base, then pages, then release', () => 
   assert.throws(() => publish.resolveBaseUrl({ ...common }), /set `base-url`/);
 });
 
+test('publishPages refuses a destination that escapes the worktree', async () => {
+  await assert.rejects(
+    publish.publishPages({ repoUrl: '/tmp/nowhere.git', branch: 'gh-pages', destDir: 'v1.0.0/../../evil', files: [] }),
+    /plain directory name/
+  );
+  await assert.rejects(
+    publish.publishPages({ repoUrl: '/tmp/nowhere.git', branch: 'gh-pages', destDir: '../evil', files: [] }),
+    /plain directory name/
+  );
+  await assert.rejects(
+    publish.publishPages({ repoUrl: '/tmp/nowhere.git', branch: 'gh-pages', destDir: '', files: [] }),
+    /plain directory name/
+  );
+});
+
 test('publishPages creates the branch, then keeps other versions', async () => {
   const bare = path.join(tempDir(), 'site.git');
   execFileSync('git', ['init', '--bare', '-q', bare]);

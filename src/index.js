@@ -15,7 +15,7 @@ const publish = require('./publish');
 const FALSEY = new Set(['', 'false', '0', 'no', 'off']);
 
 function truthy(value) {
-  return !FALSEY.has(String(value === undefined || value === null ? '' : value).trim().toLowerCase());
+  return !FALSEY.has(String(value ?? '').trim().toLowerCase());
 }
 
 function checkRequireStrings(value, cwd) {
@@ -61,7 +61,6 @@ async function run() {
   const cwd = path.resolve(core.getInput('working-directory') || '.');
   const repo = process.env.GITHUB_REPOSITORY || '';
   const token = core.getInput('github-token');
-  const scheme = core.getInput('scheme') || 'zpkd1';
   const publishPages = truthy(core.getInput('publish-pages'));
   const publishRelease = truthy(core.getInput('publish-release'));
 
@@ -71,13 +70,14 @@ async function run() {
   }
   if (publishPages && !token) throw new Error('publish-pages needs a token (input `github-token`)');
   if (publishRelease && !token) throw new Error('publish-release needs a token (input `github-token`)');
+  if (token) core.setSecret(token); // registered with the log masker before anything runs
 
   const problems = checkRequireStrings(core.getInput('require-strings'), cwd);
   if (problems.length) throw new Error(problems.join('\n'));
 
   if (truthy(core.getInput('build'))) {
     await exec.exec('npm', ['install', '--include=dev'], { cwd });
-    await exec.exec(core.getInput('run') || 'npm run build', [], { cwd });
+    await exec.exec('npm', ['run', 'build'], { cwd }); // argv, not a shell - no `&&` here
   }
 
   const zabPath = await findZab(cwd, core.getInput('zab') || 'dist/*.zab');
@@ -90,33 +90,31 @@ async function run() {
   }
 
   const tag = core.getInput('tag') || `v${app.version}`;
-  const pagesDir = core.getInput('pages-dir') || `v${app.version}`;
   const base = publish.resolveBaseUrl({
     baseUrl: core.getInput('base-url'),
     publishPages,
     publishRelease,
     repo,
     tag,
-    pagesDir,
   });
 
   const outDir = path.resolve(cwd, core.getInput('out-dir') || 'zepp-site');
   const devices = pack.loadDevices(path.join(os.homedir(), '.zepp', '.zeus_devices'));
-  const document = await pack.packZab(parsed, { outDir, base, scheme, expiry, devices });
+  const document = await pack.packZab(parsed, { outDir, base, expiry, devices });
 
   for (const entry of document.packages) {
-    await qr.writeQr(pack.payloadFor(document.base, entry.file, scheme), path.join(outDir, entry.qr));
+    await qr.writeQr(pack.payloadFor(document.base, entry.file), path.join(outDir, entry.qr));
   }
 
-  if (truthy(core.getInput('verify-qr'))) {
-    const bad = [];
-    for (const entry of document.packages) {
-      const want = pack.payloadFor(document.base, entry.file, scheme);
-      const got = qr.readQr(path.join(outDir, entry.qr));
-      if (got !== want) bad.push(`${entry.qr}: decoded ${JSON.stringify(got)}`);
-    }
-    if (bad.length) throw new Error(`QR verification failed:\n${bad.join('\n')}`);
+  // Always: a QR that does not decode back to its payload is the one failure this
+  // action exists to prevent, and ruling it out is cheap.
+  const bad = [];
+  for (const entry of document.packages) {
+    const want = pack.payloadFor(document.base, entry.file);
+    const got = qr.readQr(path.join(outDir, entry.qr));
+    if (got !== want) bad.push(`${entry.qr}: decoded ${JSON.stringify(got)}`);
   }
+  if (bad.length) throw new Error(`QR verification failed:\n${bad.join('\n')}`);
 
   const packages = document.packages;
   const zpks = packages.flatMap((entry) => [path.join(outDir, entry.file), path.join(outDir, entry.rawFile)]);
@@ -125,10 +123,10 @@ async function run() {
   if (publishPages) {
     await publish.publishPages({
       repoUrl: `https://x-access-token:${token}@github.com/${repo}.git`,
-      branch: core.getInput('pages-branch') || 'gh-pages',
-      destDir: pagesDir,
+      branch: 'gh-pages',
+      destDir: `v${app.version}`,
       files: zpks,
-      message: `publish ${pagesDir} (${app.appName} ${app.version})`,
+      message: `publish v${app.version} (${app.appName} ${app.version})`,
     });
   }
 
@@ -148,12 +146,10 @@ async function run() {
   }
 
   if (truthy(core.getInput('check-urls'))) {
-    const retries = Number(core.getInput('retries') || 12);
-    const delay = Number(core.getInput('delay') || 10);
     const missing = [];
     for (const entry of packages) {
       const url = pack.urlFor(document.base, entry.file);
-      if (!(await qr.probe(url, { retries, delay }))) missing.push(url);
+      if (!(await qr.probe(url))) missing.push(url);
     }
     if (missing.length) throw new Error(`unreachable package URLs:\n${missing.join('\n')}`);
   }
@@ -161,7 +157,6 @@ async function run() {
   core.setOutput('version', app.version || '');
   core.setOutput('count', String(packages.length));
   core.setOutput('out-dir', outDir);
-  core.setOutput('packages', path.join(outDir, 'packages.json'));
   core.setOutput('notes', path.join(outDir, 'release-notes.md'));
   core.setOutput('files', packages.map((entry) => path.join(outDir, entry.file)).join('\n'));
   core.setOutput('base-url', document.base);

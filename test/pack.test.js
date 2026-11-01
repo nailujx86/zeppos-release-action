@@ -47,14 +47,40 @@ test('appMetaFor reads identity from the first package', async () => {
 
 test('payload and url share one join', () => {
   assert.equal(pack.payloadFor(BASE, 'a.zpk'), 'zpkd1://example.github.io/uv-index/v1.0.0/a.zpk');
-  assert.equal(pack.payloadFor('/' + BASE + '/', 'a.zpk', 'watchface'), 'watchface://example.github.io/uv-index/v1.0.0/a.zpk');
+  assert.equal(pack.payloadFor('/' + BASE + '/', 'a.zpk'), 'zpkd1://example.github.io/uv-index/v1.0.0/a.zpk');
   assert.equal(pack.urlFor(BASE, 'a.zpk'), 'https://example.github.io/uv-index/v1.0.0/a.zpk');
+});
+
+test('a base with a scheme is refused, not baked into a QR', () => {
+  // zpkd1://https://host/... is unscannable, and verify-qr cannot catch it because
+  // it compares the QR against the same derived string.
+  assert.throws(() => pack.payloadFor('https://cdn.example.com/x', 'a.zpk'), /no scheme/);
+  assert.throws(() => pack.urlFor('http://cdn.example.com/x', 'a.zpk'), /no scheme/);
+  assert.throws(() => pack.normaliseBase('zpkd1://cdn.example.com/x'), /no scheme/);
+});
+
+test('readZab refuses a package that claims several platforms', async () => {
+  const dir = tempDir();
+  const zabPath = path.join(dir, 'build.zab');
+  await makeZab(zabPath);
+  // Rewrite the manifest so the first zpk claims two platforms.
+  const { buildZip } = require('./helpers');
+  const raw = await JSZip.loadAsync(fs.readFileSync(zabPath));
+  const manifest = JSON.parse(await raw.file('manifest.json').async('string'));
+  manifest.zpks[0].platforms.push({ screenType: 'round', screenResolution: '480x480', cpuPlatform: 'ZPS' });
+  const files = {};
+  for (const name of Object.keys(raw.files)) {
+    if (raw.files[name].dir) continue;
+    files[name] = await raw.files[name].async('nodebuffer');
+  }
+  files['manifest.json'] = JSON.stringify(manifest);
+  fs.writeFileSync(zabPath, await buildZip(files));
+  await assert.rejects(pack.readZab(fs.readFileSync(zabPath), 'build.zab'), /several platforms/);
 });
 
 test('one patched and one raw zpk per platform', async () => {
   const { outDir } = await packed();
   assert.deepEqual(fs.readdirSync(outDir).sort(), [
-    'packages.json',
     'release-notes.md',
     'uv-index-1-0-0-round-466-zps-raw.zpk',
     'uv-index-1-0-0-round-466-zps.zpk',
@@ -137,9 +163,9 @@ test('two runs over the same input are byte identical', async () => {
   }
 });
 
-test('packages.json carries models, sizes and file names', async () => {
+test('the document carries models, sizes and file names', async () => {
   const { outDir, document } = await packed();
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(outDir, 'packages.json'), 'utf8')), document);
+  assert.ok(!fs.existsSync(path.join(outDir, 'packages.json')), 'no index file is written');
   assert.equal(document.base, BASE);
   assert.equal(document.app.version, '1.0.0');
   assert.equal(document.packages.length, 2);

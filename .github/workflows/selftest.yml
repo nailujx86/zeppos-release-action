@@ -42,7 +42,10 @@ jobs:
           test "$(ls zepp-site/qr-*.png | wc -l)" = "2"
           head -3 zepp-site/release-notes.md
 
-      - name: Push into a scratch Pages branch
+      # This publishes to this repository's own gh-pages branch (nothing serves it,
+      # and no release or QR points at it), so the push is exercised for real without
+      # touching any consumer's site.
+      - name: Publish to this repo's Pages branch
         if: ${{ github.event_name == 'push' }}
         uses: ./
         with:
@@ -50,13 +53,10 @@ jobs:
           out-dir: zepp-site-pages
           build: "false"
           publish-pages: true
-          pages-branch: selftest-pages
-          pages-dir: v1.0.0
-          verify-qr: "false"
 
-      - name: The scratch branch carries the packages
+      - name: The branch carries the packages
         if: ${{ github.event_name == 'push' }}
         run: |
           set -euo pipefail
-          git fetch --depth=1 origin selftest-pages
+          git fetch --depth=1 origin gh-pages
           git ls-tree --name-only FETCH_HEAD:v1.0.0

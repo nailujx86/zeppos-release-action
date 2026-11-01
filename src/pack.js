@@ -48,6 +48,8 @@ function labelFor(platform) {
 }
 
 function stemFor(app) {
+  // Filenames stay plain ASCII: a QR filename with non-ASCII characters is a
+  // known source of failed downloads on the watch side.
   const name = String(app.appName || 'app')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -57,7 +59,11 @@ function stemFor(app) {
 }
 
 function normaliseBase(baseUrl) {
-  return String(baseUrl).replace(/^\/+|\/+$/g, '');
+  const base = String(baseUrl).replace(/^\/+|\/+$/g, '');
+  // zpkd1://https://host/... is unscannable, and QR verification cannot catch it:
+  // the decoder returns the same broken string the encoder was given.
+  if (base.includes('://')) throw new Error(`base-url must carry no scheme, got "${baseUrl}"`);
+  return base;
 }
 
 function joinUrl(baseUrl, filename) {
@@ -93,6 +99,10 @@ async function readZab(buffer, sourceName = 'build.zab') {
   for (const entry of manifest.zpks) {
     const zpkEntry = zab.file(entry.name);
     if (!zpkEntry) throw new Error(`manifest lists ${entry.name} but ${sourceName} does not contain it`);
+    if (!Array.isArray(entry.platforms) || entry.platforms.length !== 1) {
+      const count = Array.isArray(entry.platforms) ? entry.platforms.length : 0;
+      throw new Error(`${entry.name} claims several platforms (${count}); exactly one is expected per package`);
+    }
     const zpk = await JSZip.loadAsync(await zpkEntry.async('nodebuffer'));
     const deviceZip = zpk.file('device.zip');
     const appSide = zpk.file('app-side.zip');
@@ -159,7 +169,7 @@ function modelsFor(config, devices) {
   return models;
 }
 
-function renderNotes(document, scheme = 'zpkd1') {
+function renderNotes(document) {
   const { app, base, packages } = document;
   const lines = [
     `## ${app.appName || 'App'} ${app.version || ''}`.trim(),
@@ -185,12 +195,12 @@ function renderNotes(document, scheme = 'zpkd1') {
     '',
     'Every package also has an untampered `-raw` twin beside it, as a fallback.',
     '',
-    `Links use the \`${scheme}://\` scheme, which the Zepp App rewrites to \`https://\`.`
+    'Links use the `zpkd1://` scheme, which the Zepp App rewrites to `https://`.'
   );
   return `${lines.join('\n')}\n`;
 }
 
-async function packZab(parsed, { outDir, base, scheme = 'zpkd1', expiry = DEFAULT_EXPIRY, devices = {} }) {
+async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices = {} }) {
   fs.mkdirSync(outDir, { recursive: true });
 
   const app = appMetaFor(parsed);
@@ -223,8 +233,7 @@ async function packZab(parsed, { outDir, base, scheme = 'zpkd1', expiry = DEFAUL
     packages,
     generatedFrom: parsed.sourceName,
   };
-  fs.writeFileSync(path.join(outDir, 'packages.json'), `${JSON.stringify(document, null, 1)}\n`);
-  fs.writeFileSync(path.join(outDir, 'release-notes.md'), renderNotes(document, scheme));
+  fs.writeFileSync(path.join(outDir, 'release-notes.md'), renderNotes(document));
   return document;
 }
 

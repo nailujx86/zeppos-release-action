@@ -123,7 +123,6 @@ test('run packages a zab and reports outputs', async () => {
     'working-directory': dir,
     'out-dir': 'site',
     'expect-version': '1.0.0',
-    'verify-qr': 'true',
   });
   const outputFile = path.join(dir, 'outputs.txt');
   fs.writeFileSync(outputFile, '');

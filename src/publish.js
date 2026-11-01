@@ -41,7 +41,11 @@ function resolveBaseUrl({ baseUrl = '', publishPages = false, publishRelease = f
  * A printed QR code bakes the URL in, so an older version must never be deleted.
  */
 async function publishPages({ repoUrl, branch = 'gh-pages', destDir, files, message }) {
-  if (!destDir) throw new Error('publishPages needs a destination directory');
+  // destDir becomes a path that is rm -rf'd and committed: keep it a single plain
+  // name so it can never reach outside the worktree.
+  if (!/^[A-Za-z0-9._-]+$/.test(String(destDir || ''))) {
+    throw new Error(`destination must be a plain directory name, got ${JSON.stringify(destDir)}`);
+  }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'zepp-pages-'));
   const run = (args, options = {}) => exec.exec('git', args, { cwd: work, silent: true, ...options });
 
