@@ -1,0 +1,113 @@
+name: Zepp OS Release
+description: Build a Zepp OS project, split and patch its .zab, publish zpkd1:// install QR codes.
+author: Julian Blazek
+branding:
+  icon: package
+  color: green
+
+inputs:
+  zab:
+    description: Glob for the built .zab. Must match exactly one file.
+    required: false
+    default: dist/*.zab
+  base-url:
+    description: Public host and path serving the .zpk files, no scheme. Optional when publishing.
+    required: false
+    default: ""
+  out-dir:
+    description: Directory to write the packages, QR codes and notes into.
+    required: false
+    default: zepp-site
+  scheme:
+    description: URL scheme for the QR payloads. zpkd1 for mini programs, watchface for watch faces.
+    required: false
+    default: zpkd1
+  expiry:
+    description: Package validity in seconds, written to packageInfo.expiredTime.
+    required: false
+    default: "31536000"
+  expect-version:
+    description: If set, fail unless the packaged app version matches this value.
+    required: false
+    default: ""
+  build:
+    description: Run npm install and the build command before packing.
+    required: false
+    default: "true"
+  run:
+    description: Build command, executed in working-directory when build is true.
+    required: false
+    default: npm run build
+  working-directory:
+    description: Directory containing the Zepp OS project.
+    required: false
+    default: .
+  require-strings:
+    description: |
+      Newline separated `file::text` pairs that must be present before packing,
+      for example `utils/config/constants.js::export const DEMO_MODE = false`.
+      The run fails if any pair is missing, keeping a dev-configured build out of a release.
+    required: false
+    default: ""
+  verify-qr:
+    description: Decode every generated QR and fail if it does not match its payload.
+    required: false
+    default: "true"
+  check-urls:
+    description: Poll the public URL of every package once publishing is done.
+    required: false
+    default: "false"
+  retries:
+    description: Attempts per URL when check-urls is true.
+    required: false
+    default: "12"
+  delay:
+    description: Seconds between URL attempts.
+    required: false
+    default: "10"
+  publish-pages:
+    description: Push the packages to a Pages branch. Needs contents - write and Pages enabled on that branch.
+    required: false
+    default: "false"
+  pages-branch:
+    description: Branch published to when publish-pages is true.
+    required: false
+    default: gh-pages
+  pages-dir:
+    description: Directory inside pages-branch for this version. Defaults to v<version>.
+    required: false
+    default: ""
+  publish-release:
+    description: Create or update a GitHub release carrying the QR codes and, unless Pages is on, the packages.
+    required: false
+    default: "false"
+  tag:
+    description: Release tag. Defaults to v<version>.
+    required: false
+    default: ""
+  github-token:
+    description: Token used for publishing. Needs contents - write.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: App version read from the packaged app.json.
+  count:
+    description: Number of device packages written.
+  out-dir:
+    description: Absolute path of the directory holding the packages and QR codes.
+  packages:
+    description: Path to packages.json.
+  notes:
+    description: Path to release-notes.md.
+  files:
+    description: Newline separated list of the patched .zpk paths.
+  base-url:
+    description: The public base URL the QR codes point at.
+  release-url:
+    description: HTML URL of the created or updated release, when publish-release is true.
+
+runs:
+  using: node20
+  main: dist/index.js
