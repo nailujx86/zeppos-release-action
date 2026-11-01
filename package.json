@@ -1,0 +1,28 @@
+{
+  "name": "zeppos-release-action",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build, split and patch a Zepp OS .zab, then publish zpkd1:// install QRs.",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "ncc build src/index.js -o dist --license licenses.txt"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/exec": "^1.1.1",
+    "@actions/glob": "^0.4.0",
+    "jsqr": "^1.4.0",
+    "jszip": "^3.10.1",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.3",
+    "yaml": "^2.6.1"
+  }
+}
