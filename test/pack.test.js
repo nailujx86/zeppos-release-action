@@ -34,6 +34,24 @@ test('slug and label describe a platform unambiguously', () => {
   assert.equal(pack.labelFor(PLATFORMS[0]), 'Round 466\u00d7466 \u00b7 ZPS');
 });
 
+test('the QR image comes from the release when the release carries the assets', async () => {
+  const dir = tempDir();
+  const zabPath = await makeZab(path.join(dir, 'build.zab'));
+  const parsed = await pack.readZab(fs.readFileSync(zabPath), 'build.zab');
+  const document = await pack.packZab(parsed, {
+    outDir: path.join(dir, 'site'),
+    base: 'nailujx86.github.io/zeppos-uv-index/v1.0.0',
+    imageBase: 'github.com/nailujx86/zeppos-uv-index/releases/download/v1.0.0',
+    devices: {},
+  });
+  const notes = fs.readFileSync(path.join(dir, 'site', 'release-notes.md'), 'utf8');
+  assert.ok(
+    notes.includes('<img src="https://github.com/nailujx86/zeppos-uv-index/releases/download/v1.0.0/qr-'),
+    'images point at the release assets'
+  );
+  assert.ok(notes.includes('](https://nailujx86.github.io/zeppos-uv-index/v1.0.0/'), 'package links keep the payload base');
+});
+
 test('a crafted manifest cannot name a file outside outDir', () => {
   const evil = { screenType: 'x/../../pwned', screenResolution: '466x466', cpuPlatform: 'ZPS' };
   const slug = pack.slugFor(evil);

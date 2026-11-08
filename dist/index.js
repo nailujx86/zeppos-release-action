@@ -62323,9 +62323,13 @@ async function run() {
     pagesDir: versionDir,
   });
 
+  // The QR images are rendered inside the release body, so when the release carries
+  // the assets, the body must show those — not a second copy that can rot elsewhere.
+  const imageBase = publishRelease ? `github.com/${repo}/releases/download/${tag}` : base;
+
   const outDir = path.resolve(cwd, core.getInput('out-dir') || 'zepp-site');
   const devices = pack.loadDevices(path.join(os.homedir(), '.zepp', '.zeus_devices'));
-  const document = await pack.packZab(parsed, { outDir, base, expiry, devices });
+  const document = await pack.packZab(parsed, { outDir, base, imageBase, expiry, devices });
 
   for (const entry of document.packages) {
     await qr.writeQr(pack.payloadFor(document.base, entry.file), path.join(outDir, entry.qr));
@@ -62595,7 +62599,7 @@ function modelsFor(config, devices) {
 }
 
 function renderNotes(document) {
-  const { app, base, packages } = document;
+  const { app, base, packages, imageBase = base } = document;
   const lines = [
     `## ${app.appName || 'App'} ${app.version || ''}`.trim(),
     '',
@@ -62610,7 +62614,7 @@ function renderNotes(document) {
   ];
   for (const entry of packages) {
     const watch = entry.models.length ? entry.models.join(', ') : entry.label;
-    lines.push(`| ${watch} | <img src="${urlFor(base, entry.qr)}" width="200"> | [${entry.file}](${urlFor(base, entry.file)}) |`);
+    lines.push(`| ${watch} | <img src="${urlFor(imageBase, entry.qr)}" width="200"> | [${entry.file}](${urlFor(base, entry.file)}) |`);
   }
   lines.push(
     '',
@@ -62619,7 +62623,7 @@ function renderNotes(document) {
   return `${lines.join('\n')}\n`;
 }
 
-async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices = {} }) {
+async function packZab(parsed, { outDir, base, imageBase = '', expiry = DEFAULT_EXPIRY, devices = {} }) {
   fs.mkdirSync(outDir, { recursive: true });
 
   const app = appMetaFor(parsed);
@@ -62654,6 +62658,9 @@ async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices 
   const document = {
     app,
     base: normaliseBase(base),
+    // Where the QR *images* are served from. That is not always `base`: the release
+    // body should show the QR assets the release itself carries.
+    imageBase: normaliseBase(imageBase || base),
     packages,
     generatedFrom: parsed.sourceName,
   };

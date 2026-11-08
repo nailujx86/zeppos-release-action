@@ -111,9 +111,13 @@ async function run() {
     pagesDir: versionDir,
   });
 
+  // The QR images are rendered inside the release body, so when the release carries
+  // the assets, the body must show those — not a second copy that can rot elsewhere.
+  const imageBase = publishRelease ? `github.com/${repo}/releases/download/${tag}` : base;
+
   const outDir = path.resolve(cwd, core.getInput('out-dir') || 'zepp-site');
   const devices = pack.loadDevices(path.join(os.homedir(), '.zepp', '.zeus_devices'));
-  const document = await pack.packZab(parsed, { outDir, base, expiry, devices });
+  const document = await pack.packZab(parsed, { outDir, base, imageBase, expiry, devices });
 
   for (const entry of document.packages) {
     await qr.writeQr(pack.payloadFor(document.base, entry.file), path.join(outDir, entry.qr));

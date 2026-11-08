@@ -8,6 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const publish = require('../src/publish');
+const { fakeFetch } = require('./helpers');
 
 function tempDir(prefix = 'zepp-pub-') {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -15,22 +16,6 @@ function tempDir(prefix = 'zepp-pub-') {
 
 function gitShow(bare, ref) {
   return execFileSync('git', [`--git-dir=${bare}`, 'show', ref], { encoding: 'utf8' });
-}
-
-function fakeFetch(handler) {
-  const calls = [];
-  const fetchImpl = async (url, options = {}) => {
-    const method = (options.method || 'GET').toUpperCase();
-    calls.push({ url, method, body: options.body });
-    const result = handler({ url, method, options }) || {};
-    return {
-      ok: result.status ? result.status >= 200 && result.status < 300 : true,
-      status: result.status || 200,
-      json: async () => result.json,
-      text: async () => JSON.stringify(result.json === undefined ? '' : result.json),
-    };
-  };
-  return { fetchImpl, calls };
 }
 
 const SHORT = (url) => url.replace('https://api.github.com', '').replace('https://uploads.github.com', '');

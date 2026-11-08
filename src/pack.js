@@ -175,7 +175,7 @@ function modelsFor(config, devices) {
 }
 
 function renderNotes(document) {
-  const { app, base, packages } = document;
+  const { app, base, packages, imageBase = base } = document;
   const lines = [
     `## ${app.appName || 'App'} ${app.version || ''}`.trim(),
     '',
@@ -190,7 +190,7 @@ function renderNotes(document) {
   ];
   for (const entry of packages) {
     const watch = entry.models.length ? entry.models.join(', ') : entry.label;
-    lines.push(`| ${watch} | <img src="${urlFor(base, entry.qr)}" width="200"> | [${entry.file}](${urlFor(base, entry.file)}) |`);
+    lines.push(`| ${watch} | <img src="${urlFor(imageBase, entry.qr)}" width="200"> | [${entry.file}](${urlFor(base, entry.file)}) |`);
   }
   lines.push(
     '',
@@ -199,7 +199,7 @@ function renderNotes(document) {
   return `${lines.join('\n')}\n`;
 }
 
-async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices = {} }) {
+async function packZab(parsed, { outDir, base, imageBase = '', expiry = DEFAULT_EXPIRY, devices = {} }) {
   fs.mkdirSync(outDir, { recursive: true });
 
   const app = appMetaFor(parsed);
@@ -234,6 +234,9 @@ async function packZab(parsed, { outDir, base, expiry = DEFAULT_EXPIRY, devices 
   const document = {
     app,
     base: normaliseBase(base),
+    // Where the QR *images* are served from. That is not always `base`: the release
+    // body should show the QR assets the release itself carries.
+    imageBase: normaliseBase(imageBase || base),
     packages,
     generatedFrom: parsed.sourceName,
   };

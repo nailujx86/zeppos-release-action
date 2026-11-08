@@ -8,7 +8,7 @@ const path = require('node:path');
 
 process.env.ZEPP_ACTION_NO_RUN = 'true';
 const { run, checkRequireStrings, truthy } = require('../src/index');
-const { makeZab } = require('./helpers');
+const { makeZab, fakeFetch } = require('./helpers');
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'zepp-index-'));
@@ -137,4 +137,42 @@ test('run packages a zab and reports outputs', async () => {
   assert.match(outputs, /version<<ghadelimiter_[^\n]+\n1\.0\.0/);
   assert.match(outputs, /count<<ghadelimiter_[^\n]+\n2/);
   assert.match(outputs, /base-url<<ghadelimiter_[^\n]+\nexample\.github\.io\/app\/v1\.0\.0/);
+});
+
+test('the release body shows QR images from the release assets, not from Pages', async () => {
+  const dir = tempDir();
+  await makeZab(path.join(dir, 'dist', 'build.zab'), { version: '1.0.0' });
+  const { fetchImpl, calls } = fakeFetch(({ url, method }) => {
+    if (method === 'GET' && String(url).endsWith('/releases/tags/v1.0.0')) return { status: 404 };
+    if (method === 'POST' && String(url).endsWith('/releases')) return { json: { id: 11, html_url: 'https://example/rel/11' } };
+    if (method === 'POST' && String(url).includes('/assets?name=')) return { json: { id: 1 } };
+    return { status: 500 };
+  });
+
+  const realFetch = global.fetch;
+  global.fetch = fetchImpl;
+  try {
+    setInputs({
+      zab: path.join(dir, 'dist', '*.zab'),
+      build: 'false',
+      'working-directory': dir,
+      'out-dir': 'site',
+      'base-url': 'nailujx86.github.io/zeppos-uv-index/v1.0.0',
+      'publish-release': 'true',
+      'github-token': 'tkn',
+    });
+    process.env.GITHUB_REPOSITORY = 'nailujx86/zeppos-uv-index';
+    const document = await run();
+    assert.equal(document.imageBase, 'github.com/nailujx86/zeppos-uv-index/releases/download/v1.0.0');
+
+    const created = calls.find((call) => call.method === 'POST' && String(call.url).endsWith('/releases'));
+    const body = JSON.parse(created.body).body;
+    assert.ok(
+      body.includes('<img src="https://github.com/nailujx86/zeppos-uv-index/releases/download/v1.0.0/qr-'),
+      'the body must show the QR assets the release carries'
+    );
+    assert.ok(body.includes('](https://nailujx86.github.io/zeppos-uv-index/v1.0.0/'), 'package links keep the payload base');
+  } finally {
+    global.fetch = realFetch;
+  }
 });

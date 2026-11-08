@@ -81,4 +81,20 @@ async function innerAppJson(zpkFile) {
   return JSON.parse(await inner.file('app.json').async('string'));
 }
 
-module.exports = { buildZip, makeZab, innerAppJson, PLATFORMS, FIXED_DATE };
+function fakeFetch(handler) {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const method = (options.method || 'GET').toUpperCase();
+    calls.push({ url, method, body: options.body });
+    const result = handler({ url, method, options }) || {};
+    return {
+      ok: result.status ? result.status >= 200 && result.status < 300 : true,
+      status: result.status || 200,
+      json: async () => result.json,
+      text: async () => JSON.stringify(result.json === undefined ? '' : result.json),
+    };
+  };
+  return { fetchImpl, calls };
+}
+
+module.exports = { buildZip, makeZab, innerAppJson, PLATFORMS, FIXED_DATE, fakeFetch };
