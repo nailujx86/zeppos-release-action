@@ -62614,13 +62614,7 @@ function renderNotes(document) {
   }
   lines.push(
     '',
-    'The packages are patched for direct install (`packageInfo.mode = "preview"`, long expiry)',
-    'and served from a permanent path: re-running the release republishes the same URLs with a fresh',
-    'expiry, so these QR codes keep working.',
-    '',
-    'Every package also has an untampered `-raw` twin beside it, as a fallback.',
-    '',
-    'Links use the `zpkd1://` scheme, which the Zepp App rewrites to `https://`.'
+    'The non-`-raw` packages are patched: `packageInfo.mode = "preview"` and a long expiry.'
   );
   return `${lines.join('\n')}\n`;
 }

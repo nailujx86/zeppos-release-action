@@ -210,6 +210,7 @@ test('release notes link every package and every QR', async () => {
   }
   assert.ok(notes.includes('Amazfit GTS 4'));
   assert.ok(notes.includes('| Watch | QR | Package |'));
+  assert.ok(notes.includes('The non-`-raw` packages are patched'), 'the footer stays one sentence');
 });
 
 test('models fall back to the label when the device cache is empty', async () => {
