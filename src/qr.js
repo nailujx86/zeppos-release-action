@@ -31,8 +31,9 @@ function readQr(file) {
 }
 
 async function probe(url, options = {}) {
-  const { retries = 12, delay = 10, fetchImpl = fetch, sleepImpl = sleep } = options;
+  const { retries = 12, delay = 10, fetchImpl = fetch, sleepImpl = sleep, onAttempt = () => {} } = options;
   for (let attempt = 1; attempt <= retries; attempt += 1) {
+    onAttempt(url, attempt, retries);
     try {
       const response = await fetchImpl(url, {
         headers: { range: 'bytes=0-0' },

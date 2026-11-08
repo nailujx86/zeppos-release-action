@@ -56,6 +56,22 @@ test('probe reports a served file as reachable', async () => {
   }
 });
 
+test('probe reports each attempt so a long wait is visible', async () => {
+  const seen = [];
+  let attempts = 0;
+  const fetchImpl = async () => {
+    attempts += 1;
+    throw new Error('nope');
+  };
+  await qr.probe('http://example.invalid/a.zpk', {
+    retries: 2,
+    delay: 0,
+    fetchImpl,
+    onAttempt: (url, attempt, tries) => seen.push(`${attempt}/${tries}`),
+  });
+  assert.deepEqual(seen, ['1/2', '2/2']);
+});
+
 test('probe gives up after the retry budget', async () => {
   let attempts = 0;
   const fetchImpl = async () => {

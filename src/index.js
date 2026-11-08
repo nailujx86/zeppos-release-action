@@ -159,12 +159,22 @@ async function run() {
   }
 
   if (truthy(core.getInput('check-urls'))) {
+    core.info(`checking ${packages.length} package URLs at ${document.base}`);
     const missing = [];
-    for (const entry of packages) {
+    for (const [index, entry] of packages.entries()) {
       const url = pack.urlFor(document.base, entry.file);
-      if (!(await qr.probe(url))) missing.push(url);
+      // The first URL gets the full budget: that is the Pages/CDN warm-up. Once one
+      // resolves the rest are already served, so they get two quick attempts.
+      const budget = index === 0 ? { retries: 12, delay: 10 } : { retries: 2, delay: 2 };
+      const log = (target, attempt, tries) => core.info(`  ${target} (attempt ${attempt}/${tries})`);
+      if (!(await qr.probe(url, { ...budget, onAttempt: log }))) missing.push(url);
     }
-    if (missing.length) throw new Error(`unreachable package URLs:\n${missing.join('\n')}`);
+    if (missing.length) {
+      throw new Error(
+        `unreachable package URLs:\n${missing.join('\n')}\n` +
+          'If this is a first Pages deployment, enable Pages (Settings -> Pages -> gh-pages) and re-run the job.'
+      );
+    }
   }
 
   core.setOutput('version', app.version || '');
